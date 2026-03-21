@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+  }
+
+  body {
+    @apply bg-surface-0 text-gray-100;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-surface-1; }
+  ::-webkit-scrollbar-thumb { @apply bg-surface-4 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-chronos-primary-500; }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface-2 border border-surface-4 rounded-xl p-6;
+  }
+  .card-hover {
+    @apply card transition-all duration-200 hover:border-chronos-primary-500/50 hover:shadow-lg hover:shadow-chronos-primary-500/5;
+  }
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-younger { @apply badge bg-chronos-younger/10 text-chronos-younger; }
+  .badge-ontrack { @apply badge bg-chronos-ontrack/10 text-chronos-ontrack; }
+  .badge-accelerated { @apply badge bg-chronos-accelerated/10 text-chronos-accelerated; }
+  .badge-verified { @apply badge bg-chronos-verified/10 text-chronos-verified; }
+
+  /* Range slider */
+  .slider-input {
+    @apply h-1.5 cursor-pointer appearance-none rounded-full;
+  }
+  .slider-input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    @apply h-4 w-4 cursor-pointer rounded-full bg-chronos-primary-400;
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
+  }
+  .slider-input::-moz-range-thumb {
+    @apply h-4 w-4 cursor-pointer rounded-full border-0 bg-chronos-primary-400;
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
+  }
+}
