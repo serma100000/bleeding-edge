@@ -21,6 +21,7 @@ import type { CircuitCompiler } from '../proofs/circuit-compiler.js';
 import type { AgingKnowledgeGraph } from '../knowledge/knowledge-graph.js';
 import type { InterventionRecommender } from '../knowledge/recommender.js';
 import type { TemporalTracker } from '../knowledge/temporal-tracker.js';
+import type { ChronosRuVectorService } from '../shared/ruvector-client.js';
 import { validateQualityMetrics } from '../shared/validation.js';
 
 interface PipelineDependencies {
@@ -33,6 +34,7 @@ interface PipelineDependencies {
   knowledgeGraph: AgingKnowledgeGraph;
   recommender: InterventionRecommender;
   temporalTracker: TemporalTracker;
+  ruvector?: ChronosRuVectorService;
 }
 
 export class ChronosPipeline {
@@ -45,6 +47,7 @@ export class ChronosPipeline {
   private readonly knowledgeGraph: AgingKnowledgeGraph;
   private readonly recommender: InterventionRecommender;
   private readonly temporalTracker: TemporalTracker;
+  private readonly ruvector?: ChronosRuVectorService;
 
   constructor(deps: PipelineDependencies) {
     this.embedder = deps.embedder;
@@ -56,6 +59,7 @@ export class ChronosPipeline {
     this.knowledgeGraph = deps.knowledgeGraph;
     this.recommender = deps.recommender;
     this.temporalTracker = deps.temporalTracker;
+    this.ruvector = deps.ruvector;
   }
 
   async runPipeline(sample: MethylationSample): Promise<PipelineRun> {
@@ -128,10 +132,10 @@ export class ChronosPipeline {
       run.proof = proof;
       metrics.provingTimeMs = performance.now() - provingStart;
 
-      // Stage 6: Index in knowledge graph (indexing)
+      // Stage 6: Index in knowledge graph + RuVector (indexing)
       run.status = 'indexing';
       const indexingStart = performance.now();
-      this.indexInKnowledgeGraph(sample, consensusAge, embedding);
+      await this.indexInKnowledgeGraph(sample, consensusAge, embedding);
       metrics.indexingTimeMs = performance.now() - indexingStart;
 
       // Stage 7: Generate recommendations
@@ -184,16 +188,31 @@ export class ChronosPipeline {
     );
   }
 
-  private indexInKnowledgeGraph(
+  private async indexInKnowledgeGraph(
     sample: MethylationSample,
     consensusAge: ConsensusAge,
     embedding: Float32Array,
-  ): void {
+  ): Promise<void> {
+    // Index in temporal tracker (in-memory)
     this.temporalTracker.addTimepoint(
       sample.subjectId,
       consensusAge,
       embedding,
       new Date(),
     );
+
+    // Persist to RuVector if available
+    if (this.ruvector) {
+      await this.ruvector.storeSampleEmbedding(sample.sampleId, embedding, {
+        subjectId: sample.subjectId,
+        chronologicalAge: sample.metadata.chronologicalAge,
+        tissueType: sample.tissueType,
+      });
+      await this.ruvector.storeConsensusResult(consensusAge, sample.sampleId);
+      await this.ruvector.learnClockWeights(
+        consensusAge.weights,
+        consensusAge.committedClocks / consensusAge.clockResults.length,
+      );
+    }
   }
 }

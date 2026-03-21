@@ -12,12 +12,19 @@
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts"
   },
-  "keywords": ["epigenetic", "biological-age", "zero-knowledge", "methylation", "hnsw"],
+  "keywords": [
+    "epigenetic",
+    "biological-age",
+    "zero-knowledge",
+    "methylation",
+    "hnsw"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "ruflo": "^3.5.42",
-    "onnxruntime-node": "^1.20.0"
+    "@ruvector/rvf": "^0.2.0",
+    "onnxruntime-node": "^1.20.0",
+    "ruflo": "^3.5.42"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",

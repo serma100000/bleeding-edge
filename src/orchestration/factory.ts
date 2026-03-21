@@ -17,9 +17,11 @@ import { AgingKnowledgeGraph } from '../knowledge/knowledge-graph.js';
 import { InterventionRecommender } from '../knowledge/recommender.js';
 import { TemporalTracker } from '../knowledge/temporal-tracker.js';
 import { ChronosPipeline } from './pipeline.js';
+import { ChronosRuVectorService } from '../shared/ruvector-client.js';
 
 const DEFAULT_INPUT_DIM = 25000;
 const DEFAULT_EMBEDDING_DIM = 256;
+const DEFAULT_DATA_DIR = './data';
 
 export interface ChronosComponents {
   pipeline: ChronosPipeline;
@@ -28,6 +30,7 @@ export interface ChronosComponents {
   temporalTracker: TemporalTracker;
   eventBus: InMemoryEventBus;
   proofVerifier: ProofVerifier;
+  ruvector: ChronosRuVectorService;
 }
 
 export class ChronosFactory {
@@ -63,6 +66,9 @@ export class ChronosFactory {
     const recommender = new InterventionRecommender();
     const temporalTracker = new TemporalTracker();
 
+    // RuVector integration
+    const ruvector = new ChronosRuVectorService(DEFAULT_DATA_DIR);
+
     // Orchestration
     const pipeline = new ChronosPipeline({
       embedder,
@@ -74,6 +80,7 @@ export class ChronosFactory {
       knowledgeGraph,
       recommender,
       temporalTracker,
+      ruvector,
     });
 
     return {
@@ -83,6 +90,7 @@ export class ChronosFactory {
       temporalTracker,
       eventBus,
       proofVerifier,
+      ruvector,
     };
   }
 }
