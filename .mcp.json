@@ -20,6 +20,34 @@
       },
       "autoStart": false
     },
+    "ruflo": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "ruflo@latest",
+        "mcp",
+        "start"
+      ],
+      "env": {
+        "npm_config_update_notifier": "false"
+      }
+    },
+    "ruvector": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "ruvector@latest",
+        "mcp",
+        "start"
+      ],
+      "env": {
+        "npm_config_update_notifier": "false"
+      }
+    },
     "ruv-swarm": {
       "command": "cmd",
       "args": [
