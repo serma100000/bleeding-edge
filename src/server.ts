@@ -191,9 +191,13 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// SPA fallback — serve React app for all non-API routes
-app.use((_req, res) => {
-  res.sendFile(path.join(uiDistPath, 'index.html'));
+// SPA fallback — serve React app for all non-API GET routes
+app.use((req, res, next) => {
+  if (req.method === 'GET' && !req.path.startsWith('/api')) {
+    res.sendFile(path.join(uiDistPath, 'index.html'));
+  } else {
+    next();
+  }
 });
 
 // ============================================================
