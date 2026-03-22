@@ -86,16 +86,6 @@
             "type": "command",
             "timeout": 2000,
             "command": "npx ruvector@latest hooks suggest-context 2>/dev/null || true"
-          },
-          {
-            "type": "command",
-            "timeout": 2000,
-            "command": "npx agentic-flow@alpha workers dispatch-prompt \"$CLAUDE_USER_PROMPT\" 2>/dev/null || true"
-          },
-          {
-            "type": "command",
-            "timeout": 1000,
-            "command": "npx agentic-flow@alpha workers inject-context \"$CLAUDE_USER_PROMPT\" 2>/dev/null || true"
           }
         ]
       }
