@@ -10,6 +10,8 @@ import TrajectoryPage from '@/pages/TrajectoryPage';
 import InterventionsPage from '@/pages/InterventionsPage';
 import SettingsPage from '@/pages/SettingsPage';
 import GenomicsPage from '@/pages/GenomicsPage';
+import RecordDetailPage from '@/pages/RecordDetailPage';
+import AboutPage from '@/pages/AboutPage';
 
 export default function App() {
   return (
@@ -28,7 +30,9 @@ export default function App() {
             <Route path="/trajectory" element={<TrajectoryPage />} />
             <Route path="/interventions" element={<InterventionsPage />} />
             <Route path="/genomics" element={<GenomicsPage />} />
+            <Route path="/record/:sampleId" element={<RecordDetailPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/about" element={<AboutPage />} />
           </Routes>
         </main>
       </div>

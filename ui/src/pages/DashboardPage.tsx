@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { FlaskConical, Clock, ShieldCheck, Activity, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { FlaskConical, Clock, ShieldCheck, Activity, Users, Search } from 'lucide-react';
 import StatCard from '@/components/ui/StatCard';
 import { MOCK_PIPELINE_RUN, MOCK_TRAJECTORY } from '@/lib/mock-data';
 import type { PipelineRun } from '@/types/api';
@@ -30,10 +31,15 @@ interface PopulationEntry {
 }
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const [analyses, setAnalyses] = useState<PipelineRun[]>([MOCK_PIPELINE_RUN]);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [population, setPopulation] = useState<PopulationEntry[]>([]);
   const [apiAvailable, setApiAvailable] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [minAge, setMinAge] = useState('');
+  const [maxAge, setMaxAge] = useState('');
+  const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,6 +67,29 @@ export default function DashboardPage() {
     load();
     return () => { cancelled = true; };
   }, []);
+
+  // Debounced population search
+  useEffect(() => {
+    if (!apiAvailable) return;
+    if (searchTimeout) clearTimeout(searchTimeout);
+
+    const timeout = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams();
+        if (searchQuery) params.set('search', searchQuery);
+        if (minAge) params.set('minAge', minAge);
+        if (maxAge) params.set('maxAge', maxAge);
+        const qs = params.toString();
+        const pop = await apiGet<PopulationEntry[]>(`/store/population${qs ? '?' + qs : ''}`);
+        setPopulation(pop);
+      } catch {
+        // keep existing data on error
+      }
+    }, 300);
+
+    setSearchTimeout(timeout);
+    return () => clearTimeout(timeout);
+  }, [searchQuery, minAge, maxAge, apiAvailable]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const completedAnalyses = analyses.filter((r) => r.status === 'complete');
   const totalAnalyses = analyses.length + population.length;
@@ -168,7 +197,8 @@ export default function DashboardPage() {
                     return (
                       <tr
                         key={run.runId}
-                        className="border-b border-surface-4/50 transition-colors hover:bg-surface-3/30"
+                        onClick={() => navigate(`/record/${encodeURIComponent(run.sampleId)}`)}
+                        className="cursor-pointer border-b border-surface-4/50 transition-colors hover:bg-surface-3/30"
                       >
                         <td className="py-3 pr-4 font-mono text-gray-200">{run.sampleId}</td>
                         <td className="py-3 pr-4 text-gray-300">{run.chronologicalAge}</td>
@@ -261,12 +291,49 @@ export default function DashboardPage() {
       </div>
 
       {/* Population Reference */}
-      {population.length > 0 && (
+      {(population.length > 0 || searchQuery || minAge || maxAge) && (
         <div className="card">
           <h2 className="mb-4 text-lg font-semibold text-gray-100">
             Population Reference{' '}
             <span className="text-sm font-normal text-gray-400">({population.length} samples)</span>
           </h2>
+
+          {/* Search filters */}
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search by sample ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-lg border border-surface-4 bg-surface-3 py-2 pl-9 pr-3 text-sm text-gray-200 placeholder-gray-500 outline-none focus:border-chronos-primary/50 focus:ring-1 focus:ring-chronos-primary/30"
+              />
+            </div>
+            <input
+              type="number"
+              placeholder="Min age"
+              value={minAge}
+              onChange={(e) => setMinAge(e.target.value)}
+              className="w-24 rounded-lg border border-surface-4 bg-surface-3 px-3 py-2 text-sm text-gray-200 placeholder-gray-500 outline-none focus:border-chronos-primary/50 focus:ring-1 focus:ring-chronos-primary/30"
+            />
+            <input
+              type="number"
+              placeholder="Max age"
+              value={maxAge}
+              onChange={(e) => setMaxAge(e.target.value)}
+              className="w-24 rounded-lg border border-surface-4 bg-surface-3 px-3 py-2 text-sm text-gray-200 placeholder-gray-500 outline-none focus:border-chronos-primary/50 focus:ring-1 focus:ring-chronos-primary/30"
+            />
+            {(searchQuery || minAge || maxAge) && (
+              <button
+                onClick={() => { setSearchQuery(''); setMinAge(''); setMaxAge(''); }}
+                className="text-xs text-gray-400 hover:text-gray-200 transition-colors"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+
           <div className="overflow-x-auto max-h-96 overflow-y-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-surface-2">
@@ -278,23 +345,32 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {population.map((entry) => (
-                  <tr
-                    key={entry.id}
-                    className="border-b border-surface-4/50 transition-colors hover:bg-surface-3/30"
-                  >
-                    <td className="py-2 pr-4 font-mono text-gray-200">{entry.id}</td>
-                    <td className="py-2 pr-4 text-gray-300">
-                      {entry.metadata?.chronologicalAge ?? '--'}
-                    </td>
-                    <td className="py-2 pr-4 text-gray-300">
-                      {entry.metadata?.sex ?? '--'}
-                    </td>
-                    <td className="py-2 text-gray-300">
-                      {entry.metadata?.tissueType ?? '--'}
+                {population.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-sm text-gray-500">
+                      No samples match your filters.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  population.map((entry) => (
+                    <tr
+                      key={entry.id}
+                      onClick={() => navigate(`/record/${encodeURIComponent(entry.id)}`)}
+                      className="cursor-pointer border-b border-surface-4/50 transition-colors hover:bg-surface-3/30"
+                    >
+                      <td className="py-2 pr-4 font-mono text-gray-200">{entry.id}</td>
+                      <td className="py-2 pr-4 text-gray-300">
+                        {entry.metadata?.chronologicalAge ?? '--'}
+                      </td>
+                      <td className="py-2 pr-4 text-gray-300">
+                        {entry.metadata?.sex ?? '--'}
+                      </td>
+                      <td className="py-2 text-gray-300">
+                        {entry.metadata?.tissueType ?? '--'}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

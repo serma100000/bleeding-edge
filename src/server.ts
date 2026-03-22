@@ -273,11 +273,56 @@ async function startServer() {
     res.json(clocks);
   });
 
-  // Population reference data from methylation store
-  app.get('/api/store/population', (_req, res) => {
+  // Population reference data from methylation store (with search/filter)
+  app.get('/api/store/population', (req, res) => {
     try {
-      const entries = ruvector.methylationStore.listAll(100);
-      res.json(entries);
+      const search = (req.query.search as string | undefined)?.toLowerCase();
+      const minAge = req.query.minAge ? parseFloat(req.query.minAge as string) : undefined;
+      const maxAge = req.query.maxAge ? parseFloat(req.query.maxAge as string) : undefined;
+      const sex = (req.query.sex as string | undefined)?.toUpperCase();
+
+      // Fetch all entries (up to 1000 for filtering)
+      let entries = ruvector.methylationStore.listAll(1000);
+
+      if (search) {
+        entries = entries.filter(e => e.id.toLowerCase().includes(search));
+      }
+      if (minAge !== undefined && !isNaN(minAge)) {
+        entries = entries.filter(e => {
+          const age = (e.metadata?.chronologicalAge as number) ?? 0;
+          return age >= minAge;
+        });
+      }
+      if (maxAge !== undefined && !isNaN(maxAge)) {
+        entries = entries.filter(e => {
+          const age = (e.metadata?.chronologicalAge as number) ?? 0;
+          return age <= maxAge;
+        });
+      }
+      if (sex) {
+        entries = entries.filter(e => {
+          const s = (e.metadata?.sex as string)?.toUpperCase();
+          return s === sex;
+        });
+      }
+
+      // Limit to 200 after filtering
+      res.json(entries.slice(0, 200));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ error: message });
+    }
+  });
+
+  // Single population entry by sample ID
+  app.get('/api/store/population/:sampleId', (req, res) => {
+    try {
+      const entry = ruvector.methylationStore.getById(req.params.sampleId);
+      if (!entry) {
+        res.status(404).json({ error: 'Sample not found' });
+        return;
+      }
+      res.json(entry);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       res.status(500).json({ error: message });

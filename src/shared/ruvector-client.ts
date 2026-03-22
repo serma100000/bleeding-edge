@@ -198,6 +198,22 @@ export class RuVectorStore {
     return this.fallbackEntries.size;
   }
 
+  /** Return a single entry by ID with metadata and optional vector preview */
+  getById(id: string): { id: string; metadata?: Record<string, unknown>; vector?: number[] } | null {
+    if (this.useNative) {
+      const metadata = this.metadataMap.get(id);
+      if (!metadata) return null;
+      return { id, metadata };
+    }
+    const entry = this.fallbackEntries.get(id);
+    if (!entry) return null;
+    return {
+      id,
+      metadata: entry.metadata,
+      vector: entry.vector.slice(0, 10),
+    };
+  }
+
   /** Return all entries with their metadata (for population listing) */
   listAll(limit = 100): Array<{ id: string; metadata?: Record<string, unknown> }> {
     if (this.useNative) {

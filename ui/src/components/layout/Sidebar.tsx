@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Dna,
+  Info,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
   { to: '/trajectory', label: 'Trajectory', icon: TrendingUp },
   { to: '/interventions', label: 'Interventions', icon: Heart },
   { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/about', label: 'About', icon: Info },
 ] as const;
 
 export default function Sidebar() {
