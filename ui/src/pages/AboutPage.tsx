@@ -122,7 +122,7 @@ export default function AboutPage() {
                 Full methodology, validation results, and cryptographic proof architecture.
               </p>
               <a
-                href="https://github.com/ruvnet/chronos/blob/main/docs/research/chronos-verifiable-epigenetic-aging.md"
+                href="https://github.com/serma100000/bleeding-edge/blob/master/docs/research/chronos-verifiable-epigenetic-aging.md"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-chronos-primary-400 transition-colors hover:text-chronos-primary-300"
@@ -138,12 +138,10 @@ export default function AboutPage() {
       {/* Credits */}
       <section className="border-t border-surface-4 pt-8 text-center">
         <p className="text-sm text-gray-400">
-          Built with{' '}
-          <span className="font-semibold text-chronos-accent-400">RuVector</span> by{' '}
-          <span className="font-semibold text-gray-200">rUv</span>
+          CHRONOS Project
         </p>
         <p className="mt-1 text-xs text-gray-600">
-          Powered by @ruvector/rvdna and ruflo
+          Open-source verifiable epigenetic age prediction
         </p>
       </section>
     </div>
