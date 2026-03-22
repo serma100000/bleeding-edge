@@ -5,7 +5,7 @@ nixPkgs = ["nodejs_20", "npm-9_x"]
 cmds = ["npm ci --production=false"]
 
 [phases.build]
-cmds = ["npx tsc", "cd ui && npm ci --production=false && npx vite build --emptyOutDir"]
+cmds = ["npx tsc"]
 
 [start]
 cmd = "node dist/server.js"

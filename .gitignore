@@ -1,9 +1,8 @@
 # Dependencies
 node_modules/
 
-# Build output
+# Build output (server)
 dist/
-ui/dist/
 
 # RuVector intelligence data
 .ruvector/
