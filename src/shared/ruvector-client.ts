@@ -1,7 +1,9 @@
-// RuVector MCP Integration Layer for CHRONOS
-// Wraps RuVector MCP tools into typed service interfaces
-// Falls back to in-memory when MCP is unavailable
+// RuVector Integration Layer for CHRONOS
+// Uses @ruvector/rvf for persistent vector storage with JSONL metadata sidecar
+// Falls back to JSONL-only file store when native RVF is unavailable
 
+import { existsSync, mkdirSync, readFileSync, appendFileSync, writeFileSync } from 'fs';
+import path from 'path';
 import type {
   MethylationSample,
   ConsensusAge,
@@ -12,7 +14,7 @@ import type {
 } from './types.js';
 
 // ============================================================
-// RVF Vector Store Client
+// RVF Vector Store Client — Persistent to Disk
 // ============================================================
 
 export interface RvfEntry {
@@ -33,68 +35,219 @@ export interface RvfStoreConfig {
   metric: 'cosine' | 'l2' | 'dotproduct';
 }
 
+/**
+ * Persistent vector store backed by @ruvector/rvf native files.
+ * Falls back to a JSONL file-based store if the native addon is unavailable.
+ * Metadata is stored in a JSONL sidecar file since RVF query results
+ * only return {id, distance}.
+ */
 export class RuVectorStore {
   private config: RvfStoreConfig;
   private initialized = false;
 
-  // In-memory fallback when MCP unavailable
+  // Native RVF database (null if native addon unavailable)
+  private rvfDb: import('@ruvector/rvf').RvfDatabase | null = null;
+
+  // Metadata sidecar: id -> metadata (loaded from JSONL on startup)
+  private metadataMap = new Map<string, Record<string, unknown>>();
+
+  // JSONL fallback entries (only used when native RVF unavailable)
   private fallbackEntries = new Map<string, { vector: number[]; metadata?: Record<string, unknown> }>();
+  private useNative = false;
 
   constructor(config: RvfStoreConfig) {
     this.config = config;
   }
 
+  /** Path to the JSONL metadata sidecar file */
+  private get metadataPath(): string {
+    return this.config.path.replace(/\.rvf$/, '.meta.jsonl');
+  }
+
+  /** Path to the JSONL fallback file (used when native RVF unavailable) */
+  private get jsonlPath(): string {
+    return this.config.path.replace(/\.rvf$/, '.jsonl');
+  }
+
   async initialize(): Promise<void> {
-    // Attempt to create/open RVF store via MCP
-    // Falls back to in-memory if MCP unavailable
+    if (this.initialized) return;
+
+    // Ensure parent directory exists
+    const dir = path.dirname(this.config.path);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+    // Try native RVF first
     try {
-      // MCP call: rvf_create or rvf_open
-      // For now, mark as initialized with fallback
+      const { RvfDatabase } = await import('@ruvector/rvf');
+
+      if (existsSync(this.config.path)) {
+        this.rvfDb = await RvfDatabase.open(this.config.path);
+      } else {
+        this.rvfDb = await RvfDatabase.create(this.config.path, {
+          dimensions: this.config.dimension,
+          metric: this.config.metric,
+        });
+      }
+      this.useNative = true;
+
+      // Load metadata sidecar
+      this.loadMetadataSidecar();
+
       this.initialized = true;
-    } catch {
-      console.warn(`RuVector MCP unavailable, using in-memory fallback for ${this.config.path}`);
-      this.initialized = true;
+      return;
+    } catch (err) {
+      console.warn(`RVF native unavailable for ${this.config.path}, using JSONL fallback: ${err}`);
     }
+
+    // Fallback: load from JSONL file
+    this.useNative = false;
+    this.loadJsonlFallback();
+    this.initialized = true;
   }
 
   async ingest(entries: RvfEntry[]): Promise<void> {
     if (!this.initialized) await this.initialize();
 
-    // MCP call: rvf_ingest({ path, entries })
-    // Fallback: store in memory
-    for (const entry of entries) {
-      this.fallbackEntries.set(entry.id, {
-        vector: entry.vector,
-        metadata: entry.metadata,
-      });
+    if (this.useNative && this.rvfDb) {
+      // Ingest vectors into native RVF
+      const rvfEntries = entries.map(e => ({
+        id: e.id,
+        vector: e.vector instanceof Float32Array ? e.vector : new Float32Array(e.vector),
+      }));
+      await this.rvfDb.ingestBatch(rvfEntries);
+
+      // Append metadata to sidecar
+      for (const entry of entries) {
+        if (entry.metadata) {
+          this.metadataMap.set(entry.id, entry.metadata);
+          appendFileSync(
+            this.metadataPath,
+            JSON.stringify({ id: entry.id, metadata: entry.metadata }) + '\n',
+            'utf-8',
+          );
+        }
+      }
+    } else {
+      // JSONL fallback: append to file and keep in memory
+      const lines: string[] = [];
+      for (const entry of entries) {
+        this.fallbackEntries.set(entry.id, {
+          vector: entry.vector,
+          metadata: entry.metadata,
+        });
+        lines.push(JSON.stringify({
+          id: entry.id,
+          vector: Array.from(entry.vector),
+          metadata: entry.metadata,
+        }));
+      }
+      appendFileSync(this.jsonlPath, lines.join('\n') + '\n', 'utf-8');
     }
   }
 
   async query(vector: number[], k = 10): Promise<RvfQueryResult[]> {
     if (!this.initialized) await this.initialize();
 
-    // MCP call: rvf_query({ path, vector, k })
-    // Fallback: cosine similarity search in memory
-    const results: RvfQueryResult[] = [];
+    if (this.useNative && this.rvfDb) {
+      const queryVec = vector instanceof Float32Array
+        ? vector as Float32Array
+        : new Float32Array(vector);
+      const results = await this.rvfDb.query(queryVec, k);
 
+      // RVF returns distance (lower = more similar for cosine)
+      // Convert to score: 1 - distance for cosine metric
+      return results.map(r => ({
+        id: r.id,
+        score: this.config.metric === 'cosine' ? 1 - r.distance : -r.distance,
+        metadata: this.metadataMap.get(r.id),
+      }));
+    }
+
+    // JSONL fallback: brute-force cosine similarity
+    const results: RvfQueryResult[] = [];
     for (const [id, entry] of this.fallbackEntries) {
       const score = cosineSimilarity(vector, entry.vector);
       results.push({ id, score, metadata: entry.metadata });
     }
-
     return results
       .sort((a, b) => b.score - a.score)
       .slice(0, k);
   }
 
   async delete(ids: string[]): Promise<void> {
-    for (const id of ids) {
-      this.fallbackEntries.delete(id);
+    if (this.useNative && this.rvfDb) {
+      await this.rvfDb.delete(ids);
+      for (const id of ids) {
+        this.metadataMap.delete(id);
+      }
+      // Rewrite metadata sidecar
+      this.rewriteMetadataSidecar();
+    } else {
+      for (const id of ids) {
+        this.fallbackEntries.delete(id);
+      }
+      // Rewrite JSONL fallback
+      this.rewriteJsonlFallback();
     }
   }
 
   get count(): number {
+    if (this.useNative) {
+      return this.metadataMap.size;
+    }
     return this.fallbackEntries.size;
+  }
+
+  /** Close the underlying RVF database (call on shutdown) */
+  async close(): Promise<void> {
+    if (this.rvfDb && !this.rvfDb.isClosed) {
+      await this.rvfDb.close();
+    }
+  }
+
+  // ── Private helpers ──────────────────────────────────────────
+
+  private loadMetadataSidecar(): void {
+    if (!existsSync(this.metadataPath)) return;
+    const content = readFileSync(this.metadataPath, 'utf-8');
+    for (const line of content.split('\n')) {
+      if (!line.trim()) continue;
+      try {
+        const parsed = JSON.parse(line) as { id: string; metadata: Record<string, unknown> };
+        this.metadataMap.set(parsed.id, parsed.metadata);
+      } catch { /* skip malformed lines */ }
+    }
+  }
+
+  private rewriteMetadataSidecar(): void {
+    const lines: string[] = [];
+    for (const [id, metadata] of this.metadataMap) {
+      lines.push(JSON.stringify({ id, metadata }));
+    }
+    writeFileSync(this.metadataPath, lines.join('\n') + '\n', 'utf-8');
+  }
+
+  private loadJsonlFallback(): void {
+    if (!existsSync(this.jsonlPath)) return;
+    const content = readFileSync(this.jsonlPath, 'utf-8');
+    for (const line of content.split('\n')) {
+      if (!line.trim()) continue;
+      try {
+        const parsed = JSON.parse(line) as { id: string; vector: number[]; metadata?: Record<string, unknown> };
+        this.fallbackEntries.set(parsed.id, {
+          vector: parsed.vector,
+          metadata: parsed.metadata,
+        });
+      } catch { /* skip malformed lines */ }
+    }
+  }
+
+  private rewriteJsonlFallback(): void {
+    const lines: string[] = [];
+    for (const [id, entry] of this.fallbackEntries) {
+      lines.push(JSON.stringify({ id, vector: Array.from(entry.vector), metadata: entry.metadata }));
+    }
+    writeFileSync(this.jsonlPath, lines.join('\n') + '\n', 'utf-8');
   }
 }
 

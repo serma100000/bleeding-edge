@@ -22,6 +22,12 @@ export class ChronosAPI {
     this.verifier = this.components.proofVerifier;
   }
 
+  /** Create an API instance with fully initialized persistent stores */
+  static async createAsync(): Promise<ChronosAPI> {
+    const components = await ChronosFactory.createAsync();
+    return new ChronosAPI(components);
+  }
+
   async submitSample(
     csvData: string,
     metadata: SampleMetadata,

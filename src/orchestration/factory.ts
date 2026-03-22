@@ -34,7 +34,25 @@ export interface ChronosComponents {
 }
 
 export class ChronosFactory {
+  /**
+   * Synchronous factory — creates all components but does NOT initialize
+   * RuVector stores from disk. Use `createAsync()` for full persistence.
+   */
   static create(): ChronosComponents {
+    return ChronosFactory._build();
+  }
+
+  /**
+   * Async factory — creates all components and initializes RuVector stores
+   * from disk, loading persisted data on startup.
+   */
+  static async createAsync(): Promise<ChronosComponents> {
+    const components = ChronosFactory._build();
+    await components.ruvector.initialize();
+    return components;
+  }
+
+  private static _build(): ChronosComponents {
     // Shared infrastructure
     const eventBus = new InMemoryEventBus();
 
@@ -66,7 +84,7 @@ export class ChronosFactory {
     const recommender = new InterventionRecommender();
     const temporalTracker = new TemporalTracker();
 
-    // RuVector integration
+    // RuVector integration (persistent to data/ directory)
     const ruvector = new ChronosRuVectorService(DEFAULT_DATA_DIR);
 
     // Orchestration

@@ -14,6 +14,7 @@ export default function AnalysisPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pipelineRun, setPipelineRun] = useState<PipelineRun | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     chronologicalAge: '',
@@ -146,8 +147,9 @@ export default function AnalysisPage() {
           }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
           className={cn(
-            'relative card flex flex-col items-center justify-center gap-3 border-2 border-dashed py-12 transition-colors',
+            'card flex cursor-pointer flex-col items-center justify-center gap-3 border-2 border-dashed py-12 transition-colors',
             dragOver
               ? 'border-chronos-primary-400 bg-chronos-primary-500/5'
               : 'border-surface-4 hover:border-gray-600',
@@ -168,10 +170,11 @@ export default function AnalysisPage() {
             </>
           )}
           <input
+            ref={fileInputRef}
             type="file"
             accept=".csv"
             onChange={handleFileSelect}
-            className="absolute inset-0 cursor-pointer opacity-0"
+            className="hidden"
           />
         </div>
 
