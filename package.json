@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "CHRONOS: Cryptographically Honest, Reproducible, Orchestrated Network for Omics-based Senescence",
   "main": "dist/index.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "type": "module",
   "scripts": {
     "build": "tsc && cd ui && npm run build",
