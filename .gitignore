@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+ui/dist/
+
+# RuVector intelligence data
+.ruvector/
+.claude/statusline.sh
+
+# Large data files (downloaded at runtime via npm run ingest)
+data/*.gz
+data/*.txt

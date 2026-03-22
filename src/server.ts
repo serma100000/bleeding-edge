@@ -147,6 +147,26 @@ app.get('/api/trajectory/:subjectId', (req, res) => {
   });
 });
 
+// Trigger data ingest (downloads real GEO methylation data)
+let ingestRunning = false;
+app.post('/api/ingest', async (_req, res) => {
+  if (ingestRunning) {
+    res.json({ status: 'already_running' });
+    return;
+  }
+  ingestRunning = true;
+  res.json({ status: 'started', message: 'Ingesting GSE40279 (656 samples). This takes several minutes.' });
+
+  // Run ingest in background (don't await in the request handler)
+  import('child_process').then(({ exec }) => {
+    exec('npx tsx scripts/ingest-geo.ts GSE40279', { cwd: process.cwd() }, (err, stdout, stderr) => {
+      ingestRunning = false;
+      if (err) console.error('Ingest failed:', stderr);
+      else console.log('Ingest complete:', stdout.slice(-200));
+    });
+  });
+});
+
 // Get available clocks
 app.get('/api/clocks', (_req, res) => {
   const clocks = registry.getAll().map(c => ({
