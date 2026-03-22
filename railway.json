@@ -2,7 +2,7 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "npm install --include=dev && npx tsc && cd ui && npm install --include=dev && npx vite build"
+    "buildCommand": "NODE_ENV=development npm install && npx tsc && cd ui && NODE_ENV=development npm install && npx vite build"
   },
   "deploy": {
     "startCommand": "node dist/server.js",
