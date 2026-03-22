@@ -1,4 +1,4 @@
-import type { PipelineRun, CausalChain, TrajectoryPoint } from '@/types/api';
+import type { PipelineRun, CausalChain, TrajectoryPoint, GenomicProfile } from '@/types/api';
 
 export const MOCK_PIPELINE_RUN: PipelineRun = {
   runId: 'run-001',
@@ -78,6 +78,23 @@ export const MOCK_CAUSAL_CHAINS: CausalChain[] = [
   { cpg: 'cg24724428', gene: 'ELOVL2', pathway: 'Fatty acid metabolism', agingPhase: 'late_midlife', evidenceStrength: 0.91 },
   { cpg: 'cg10523019', gene: 'SCGN', pathway: 'Calcium signaling', agingPhase: 'late_life', evidenceStrength: 0.76 },
 ];
+
+export const MOCK_GENOMIC_PROFILE: GenomicProfile = {
+  subjectId: 'subject-001',
+  totalMarkers: 690000,
+  build: 'GRCh37',
+  cyp2d6: { allele1: '*1', allele2: '*4', phenotype: 'Intermediate', activity: 0.5 },
+  cyp2c19: { allele1: '*1', allele2: '*1', phenotype: 'Normal', activity: 2.0 },
+  apoe: { genotype: 'e3/e4' },
+  riskScores: { global: 0.42, cancer: 0.35, cardiovascular: 0.55, neurological: 0.48, metabolism: 0.31 },
+  profileVector: Array(64).fill(0),
+  drugRecommendations: [
+    { drug: 'Codeine', gene: 'CYP2D6', phenotype: 'Intermediate', recommendation: 'Reduce dose by 50%', doseFactor: 0.5 },
+    { drug: 'Tramadol', gene: 'CYP2D6', phenotype: 'Intermediate', recommendation: 'Reduce dose, monitor', doseFactor: 0.5 },
+    { drug: 'Clopidogrel', gene: 'CYP2C19', phenotype: 'Normal', recommendation: 'Standard dose', doseFactor: 1.0 },
+    { drug: 'Tamoxifen', gene: 'CYP2D6', phenotype: 'Intermediate', recommendation: 'Reduce dose by 25%', doseFactor: 0.75 },
+  ],
+};
 
 export const MOCK_TRAJECTORY: TrajectoryPoint[] = [
   { timestamp: '2024-03-15', biologicalAge: 44.2, chronologicalAge: 43, confidenceInterval: [42.5, 45.9] },

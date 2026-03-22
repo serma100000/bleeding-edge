@@ -95,3 +95,23 @@ export interface TrajectoryPoint {
   chronologicalAge: number;
   confidenceInterval: [number, number];
 }
+
+export interface GenomicProfile {
+  subjectId: string;
+  totalMarkers: number;
+  build: string;
+  cyp2d6: { allele1: string; allele2: string; phenotype: string; activity: number };
+  cyp2c19: { allele1: string; allele2: string; phenotype: string; activity: number };
+  apoe: { genotype: string };
+  riskScores: { global: number; cancer: number; cardiovascular: number; neurological: number; metabolism: number };
+  profileVector: number[];
+  drugRecommendations: DrugRecommendation[];
+}
+
+export interface DrugRecommendation {
+  drug: string;
+  gene: string;
+  phenotype: string;
+  recommendation: string;
+  doseFactor: number;
+}

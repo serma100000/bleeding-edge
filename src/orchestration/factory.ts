@@ -31,6 +31,9 @@ export interface ChronosComponents {
   eventBus: InMemoryEventBus;
   proofVerifier: ProofVerifier;
   ruvector: ChronosRuVectorService;
+  // Genomics context (lazy-loaded — may be undefined if genomics modules not yet available)
+  genomicAnalyzer?: any;
+  biomarkerStreamProcessor?: any;
 }
 
 export class ChronosFactory {

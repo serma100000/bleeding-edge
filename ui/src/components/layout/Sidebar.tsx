@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/analysis', label: 'New Analysis', icon: Upload },
+  { to: '/genomics', label: 'Genomics', icon: Dna },
   { to: '/clocks', label: 'Clock Comparison', icon: Clock },
   { to: '/proofs', label: 'ZK Proofs', icon: ShieldCheck },
   { to: '/knowledge', label: 'Knowledge Graph', icon: Network },

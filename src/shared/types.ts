@@ -210,3 +210,27 @@ export interface EventBus {
   emit(event: DomainEvent): void;
   on(type: DomainEvent['type'], handler: (event: DomainEvent) => void): void;
 }
+
+// ============================================================
+// Genomics Context Types
+// ============================================================
+
+export interface GenomicProfile {
+  subjectId: string;
+  totalMarkers: number;
+  build: string;
+  cyp2d6: { allele1: string; allele2: string; phenotype: string; activity: number };
+  cyp2c19: { allele1: string; allele2: string; phenotype: string; activity: number };
+  apoe: { genotype: string };
+  riskScores: { global: number; cancer: number; cardiovascular: number; neurological: number; metabolism: number };
+  profileVector: number[]; // 64-dim serialized
+  drugRecommendations: DrugRecommendation[];
+}
+
+export interface DrugRecommendation {
+  drug: string;
+  gene: string;
+  phenotype: string;
+  recommendation: string;
+  doseFactor: number;
+}

@@ -31,6 +31,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@ruvector/rvdna": "^0.3.0",
     "@ruvector/rvf": "^0.2.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",

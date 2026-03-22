@@ -10,7 +10,7 @@ import { createInterface } from 'readline';
 import { ChronosFactory } from './orchestration/factory.js';
 import { MethylationParser } from './methylation/parser.js';
 import { CpGEmbedder } from './methylation/embedder.js';
-import type { TissueType, ArrayType } from './shared/types.js';
+import type { TissueType, ArrayType, GenomicProfile } from './shared/types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT ?? '4000', 10);
@@ -40,6 +40,26 @@ async function startServer() {
 
   // Store runs in memory (production would use persistent storage)
   const runs = new Map<string, any>();
+
+  // Genomics in-memory stores
+  const genomicProfiles = new Map<string, GenomicProfile>();
+  const biomarkerProcessors = new Map<string, any>();
+
+  // Lazy-load genomics modules (created by another agent, may not exist yet)
+  // Use string variable to prevent TypeScript from statically resolving the import
+  let BiomarkerStreamProcessor: any = null;
+  let genomicAnalyzer: any = null;
+  try {
+    const analyzerPath = './genomics/analyzer.js';
+    const streamPath = './genomics/stream-processor.js';
+    const genomicsModule = await import(/* @vite-ignore */ analyzerPath);
+    genomicAnalyzer = new genomicsModule.GenomicAnalyzer();
+    const streamModule = await import(/* @vite-ignore */ streamPath);
+    BiomarkerStreamProcessor = streamModule.BiomarkerStreamProcessor;
+    console.log('Genomics modules loaded successfully');
+  } catch {
+    console.log('Genomics modules not yet available — genomics endpoints will return 503');
+  }
 
   // ============================================================
   // API Routes
@@ -243,11 +263,123 @@ async function startServer() {
       status: 'ok',
       clocks: registry.getAll().length,
       runs: runs.size,
+      genomicProfiles: genomicProfiles.size,
+      genomicsAvailable: genomicAnalyzer !== null,
       ruvector: {
         methylationStore: ruvector.methylationStore.count,
         patientStore: ruvector.patientStore.count,
         interventionStore: ruvector.interventionStore.count,
       },
+    });
+  });
+
+  // ============================================================
+  // Genomics API Routes
+  // ============================================================
+
+  // POST /api/genomics/analyze — Full 23andMe analysis
+  app.post('/api/genomics/analyze', async (req, res) => {
+    if (!genomicAnalyzer) {
+      res.status(503).json({ error: 'Genomics module not available' });
+      return;
+    }
+    try {
+      const { rawText, subjectId } = req.body as { rawText?: string; subjectId?: string };
+      if (!rawText || !subjectId) {
+        res.status(400).json({ error: 'Missing rawText or subjectId' });
+        return;
+      }
+
+      const profile: GenomicProfile = await genomicAnalyzer.analyze(rawText, subjectId);
+      genomicProfiles.set(subjectId, profile);
+
+      // Store profile vector in RuVector for similarity search
+      if (ruvector && profile.profileVector?.length > 0) {
+        const vec = new Float32Array(profile.profileVector);
+        await ruvector.storeSampleEmbedding(`genomic-${subjectId}`, vec, {
+          subjectId,
+          chronologicalAge: 0,
+          tissueType: 'whole_blood',
+        });
+      }
+
+      res.json(profile);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(400).json({ error: message });
+    }
+  });
+
+  // GET /api/genomics/profile/:subjectId — Retrieve stored profile
+  app.get('/api/genomics/profile/:subjectId', (req, res) => {
+    const profile = genomicProfiles.get(req.params.subjectId);
+    if (!profile) {
+      res.status(404).json({ error: 'Genomic profile not found' });
+      return;
+    }
+    res.json(profile);
+  });
+
+  // POST /api/genomics/biomarker — Process biomarker through stream anomaly detection
+  app.post('/api/genomics/biomarker', (req, res) => {
+    if (!BiomarkerStreamProcessor) {
+      res.status(503).json({ error: 'Genomics module not available' });
+      return;
+    }
+    try {
+      const { subjectId, biomarkerId, value } = req.body as {
+        subjectId?: string;
+        biomarkerId?: string;
+        value?: number;
+      };
+      if (!subjectId || !biomarkerId || value === undefined) {
+        res.status(400).json({ error: 'Missing subjectId, biomarkerId, or value' });
+        return;
+      }
+
+      const key = `${subjectId}:${biomarkerId}`;
+      if (!biomarkerProcessors.has(key)) {
+        biomarkerProcessors.set(key, new BiomarkerStreamProcessor(biomarkerId));
+      }
+      const processor = biomarkerProcessors.get(key)!;
+      const result = processor.process(value);
+
+      res.json(result);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(400).json({ error: message });
+    }
+  });
+
+  // GET /api/genomics/biomarker/:subjectId/summary — Streaming summary for subject
+  app.get('/api/genomics/biomarker/:subjectId/summary', (req, res) => {
+    const prefix = `${req.params.subjectId}:`;
+    const summaries: Record<string, any> = {};
+    for (const [key, processor] of biomarkerProcessors.entries()) {
+      if (key.startsWith(prefix)) {
+        const biomarkerId = key.slice(prefix.length);
+        summaries[biomarkerId] = processor.summary?.() ?? processor.stats?.() ?? { count: 0 };
+      }
+    }
+    if (Object.keys(summaries).length === 0) {
+      res.status(404).json({ error: 'No biomarker data found for subject' });
+      return;
+    }
+    res.json({ subjectId: req.params.subjectId, biomarkers: summaries });
+  });
+
+  // GET /api/genomics/drugs/:subjectId — Drug recommendations from stored CYP results
+  app.get('/api/genomics/drugs/:subjectId', (req, res) => {
+    const profile = genomicProfiles.get(req.params.subjectId);
+    if (!profile) {
+      res.status(404).json({ error: 'Genomic profile not found — run /api/genomics/analyze first' });
+      return;
+    }
+    res.json({
+      subjectId: req.params.subjectId,
+      cyp2d6: profile.cyp2d6,
+      cyp2c19: profile.cyp2c19,
+      drugRecommendations: profile.drugRecommendations,
     });
   });
 
