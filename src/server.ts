@@ -67,10 +67,10 @@ async function startServer() {
   let genomicAnalyzer: any = null;
   try {
     const analyzerPath = './genomics/analyzer.js';
-    const streamPath = './genomics/stream-processor.js';
-    const genomicsModule = await import(/* @vite-ignore */ analyzerPath);
+    const streamPath = './genomics/streaming.js';
+    const genomicsModule = await import(analyzerPath);
     genomicAnalyzer = new genomicsModule.GenomicAnalyzer();
-    const streamModule = await import(/* @vite-ignore */ streamPath);
+    const streamModule = await import(streamPath);
     BiomarkerStreamProcessor = streamModule.BiomarkerStreamProcessor;
     console.log('Genomics modules loaded successfully');
   } catch {
@@ -273,6 +273,17 @@ async function startServer() {
     res.json(clocks);
   });
 
+  // Population reference data from methylation store
+  app.get('/api/store/population', (_req, res) => {
+    try {
+      const entries = ruvector.methylationStore.listAll(100);
+      res.json(entries);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ error: message });
+    }
+  });
+
   // Health check
   app.get('/api/health', (_req, res) => {
     res.json({
@@ -282,6 +293,7 @@ async function startServer() {
       genomicProfiles: genomicProfiles.size,
       genomicsAvailable: genomicAnalyzer !== null,
       ruvector: {
+        status: ruvector.methylationStore.count > 0 ? 'operational' : 'empty',
         methylationStore: ruvector.methylationStore.count,
         patientStore: ruvector.patientStore.count,
         interventionStore: ruvector.interventionStore.count,
@@ -355,10 +367,10 @@ async function startServer() {
 
       const key = `${subjectId}:${biomarkerId}`;
       if (!biomarkerProcessors.has(key)) {
-        biomarkerProcessors.set(key, new BiomarkerStreamProcessor(biomarkerId));
+        biomarkerProcessors.set(key, new BiomarkerStreamProcessor());
       }
       const processor = biomarkerProcessors.get(key)!;
-      const result = processor.process(value);
+      const result = processor.processReading(biomarkerId, value);
 
       res.json(result);
     } catch (error: unknown) {

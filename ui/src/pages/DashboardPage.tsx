@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FlaskConical, Clock, ShieldCheck, Activity } from 'lucide-react';
+import { FlaskConical, Clock, ShieldCheck, Activity, Users } from 'lucide-react';
 import StatCard from '@/components/ui/StatCard';
 import { MOCK_PIPELINE_RUN, MOCK_TRAJECTORY } from '@/lib/mock-data';
 import type { PipelineRun } from '@/types/api';
@@ -11,12 +11,28 @@ interface HealthResponse {
   status: string;
   clocks: number;
   runs: number;
-  ruvector: string;
+  ruvector: {
+    status: string;
+    methylationStore: number;
+    patientStore: number;
+    interventionStore: number;
+  };
+}
+
+interface PopulationEntry {
+  id: string;
+  metadata?: {
+    chronologicalAge?: number;
+    sex?: string;
+    tissueType?: string;
+    subjectId?: string;
+  };
 }
 
 export default function DashboardPage() {
   const [analyses, setAnalyses] = useState<PipelineRun[]>([MOCK_PIPELINE_RUN]);
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [population, setPopulation] = useState<PopulationEntry[]>([]);
   const [apiAvailable, setApiAvailable] = useState(false);
 
   useEffect(() => {
@@ -24,13 +40,15 @@ export default function DashboardPage() {
 
     async function load() {
       try {
-        const [runs, h] = await Promise.all([
+        const [runs, h, pop] = await Promise.all([
           apiGet<PipelineRun[]>('/results'),
           apiGet<HealthResponse>('/health'),
+          apiGet<PopulationEntry[]>('/store/population'),
         ]);
         if (cancelled) return;
         setAnalyses(runs.length > 0 ? runs : [MOCK_PIPELINE_RUN]);
         setHealth(h);
+        setPopulation(pop);
         setApiAvailable(true);
       } catch {
         if (cancelled) return;
@@ -45,7 +63,7 @@ export default function DashboardPage() {
   }, []);
 
   const completedAnalyses = analyses.filter((r) => r.status === 'complete');
-  const totalAnalyses = analyses.length;
+  const totalAnalyses = analyses.length + population.length;
   const avgBioAge =
     completedAnalyses.length > 0
       ? completedAnalyses.reduce(
@@ -55,6 +73,8 @@ export default function DashboardPage() {
       : 0;
   const proofCount = analyses.filter((r) => r.proof).length;
   const activeClocks = health?.clocks ?? 4;
+
+  const ruvectorStatus = health?.ruvector?.status ?? 'unknown';
 
   const healthItems = health
     ? [
@@ -72,14 +92,14 @@ export default function DashboardPage() {
         },
         {
           label: 'RuVector Backend',
-          status: health.ruvector === 'connected' ? 'operational' : 'degraded',
+          status: ruvectorStatus === 'operational' ? 'operational' : 'degraded',
         },
       ]
     : [
         { label: 'Pipeline Engine', status: 'operational' },
         { label: 'ZK Prover (Groth16)', status: 'operational' },
         { label: 'Knowledge Graph', status: 'operational' },
-        { label: 'Embedding Service', status: 'degraded' },
+        { label: 'RuVector Backend', status: 'degraded' },
       ];
 
   return (
@@ -87,11 +107,17 @@ export default function DashboardPage() {
       <h1 className="font-display text-2xl font-bold text-gray-100">Dashboard</h1>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           icon={FlaskConical}
           label="Total Analyses"
           value={totalAnalyses}
+        />
+        <StatCard
+          icon={Users}
+          label="Population Samples"
+          value={population.length}
+          iconColor="bg-chronos-accent-500/10 text-chronos-accent-400"
         />
         <StatCard
           icon={Clock}
@@ -218,7 +244,7 @@ export default function DashboardPage() {
                 <>
                   API connected{' '}
                   <span className="text-gray-400">
-                    ({health?.runs ?? 0} total runs)
+                    ({health?.runs ?? 0} pipeline runs, {health?.ruvector?.methylationStore ?? 0} methylation entries)
                   </span>
                 </>
               ) : (
@@ -233,6 +259,47 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Population Reference */}
+      {population.length > 0 && (
+        <div className="card">
+          <h2 className="mb-4 text-lg font-semibold text-gray-100">
+            Population Reference{' '}
+            <span className="text-sm font-normal text-gray-400">({population.length} samples)</span>
+          </h2>
+          <div className="overflow-x-auto max-h-96 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-surface-2">
+                <tr className="border-b border-surface-4 text-left text-gray-400">
+                  <th className="pb-3 pr-4 font-medium">Sample ID</th>
+                  <th className="pb-3 pr-4 font-medium">Age</th>
+                  <th className="pb-3 pr-4 font-medium">Sex</th>
+                  <th className="pb-3 font-medium">Tissue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {population.map((entry) => (
+                  <tr
+                    key={entry.id}
+                    className="border-b border-surface-4/50 transition-colors hover:bg-surface-3/30"
+                  >
+                    <td className="py-2 pr-4 font-mono text-gray-200">{entry.id}</td>
+                    <td className="py-2 pr-4 text-gray-300">
+                      {entry.metadata?.chronologicalAge ?? '--'}
+                    </td>
+                    <td className="py-2 pr-4 text-gray-300">
+                      {entry.metadata?.sex ?? '--'}
+                    </td>
+                    <td className="py-2 text-gray-300">
+                      {entry.metadata?.tissueType ?? '--'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

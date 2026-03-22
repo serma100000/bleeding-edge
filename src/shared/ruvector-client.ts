@@ -198,6 +198,28 @@ export class RuVectorStore {
     return this.fallbackEntries.size;
   }
 
+  /** Return all entries with their metadata (for population listing) */
+  listAll(limit = 100): Array<{ id: string; metadata?: Record<string, unknown> }> {
+    if (this.useNative) {
+      const results: Array<{ id: string; metadata?: Record<string, unknown> }> = [];
+      let count = 0;
+      for (const [id, metadata] of this.metadataMap) {
+        if (count >= limit) break;
+        results.push({ id, metadata });
+        count++;
+      }
+      return results;
+    }
+    const results: Array<{ id: string; metadata?: Record<string, unknown> }> = [];
+    let count = 0;
+    for (const [id, entry] of this.fallbackEntries) {
+      if (count >= limit) break;
+      results.push({ id, metadata: entry.metadata });
+      count++;
+    }
+    return results;
+  }
+
   /** Close the underlying RVF database (call on shutdown) */
   async close(): Promise<void> {
     if (this.rvfDb && !this.rvfDb.isClosed) {
