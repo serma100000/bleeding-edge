@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync, mkdirSync, createWriteStream, createReadStream, unlinkSync, statSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, createWriteStream, createReadStream, unlinkSync, statSync } from 'fs';
 import { createGunzip } from 'zlib';
 import { pipeline as streamPipeline } from 'stream/promises';
 import { Readable } from 'stream';
