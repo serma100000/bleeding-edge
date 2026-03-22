@@ -13,7 +13,10 @@
     "lint": "eslint src/ tests/",
     "start": "node dist/server.js",
     "dev": "tsx src/server.ts",
-    "dev:ui": "cd ui && npx vite"
+    "dev:ui": "cd ui && npx vite",
+    "ingest": "tsx scripts/ingest-geo.ts",
+    "ingest:GSE40279": "tsx scripts/ingest-geo.ts GSE40279",
+    "ingest:GSE87571": "tsx scripts/ingest-geo.ts GSE87571"
   },
   "keywords": [
     "epigenetic",

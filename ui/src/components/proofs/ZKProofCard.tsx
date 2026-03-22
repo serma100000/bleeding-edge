@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { ShieldCheck, Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import type { AgeProof } from '@/types/api';
 import { cn, truncateHash, formatDuration } from '@/lib/utils';
+import { apiPost } from '@/hooks/useApi';
 import VerificationBadge, { type VerificationStatus } from './VerificationBadge';
 
 interface ZKProofCardProps {
@@ -38,13 +39,16 @@ export default function ZKProofCard({ proof }: ZKProofCardProps) {
   const [status, setStatus] = useState<VerificationStatus>('idle');
   const [showRaw, setShowRaw] = useState(false);
 
-  const handleVerify = useCallback(() => {
-    if (status === 'loading') return;
+  const handleVerify = useCallback(async () => {
+    if (status === 'loading' || !proof) return;
     setStatus('loading');
-    setTimeout(() => {
-      setStatus('verified');
-    }, 2000);
-  }, [status]);
+    try {
+      const result = await apiPost<{ valid: boolean }>('/verify', { proof });
+      setStatus(result.valid ? 'verified' : 'failed');
+    } catch {
+      setStatus('failed');
+    }
+  }, [status, proof]);
 
   if (!proof) {
     return (
@@ -97,12 +101,20 @@ export default function ZKProofCard({ proof }: ZKProofCardProps) {
             'w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition-all',
             status === 'verified'
               ? 'cursor-default bg-emerald-500/10 text-emerald-400'
-              : status === 'loading'
-                ? 'cursor-wait bg-chronos-primary-500/20 text-chronos-primary-300'
-                : 'bg-gradient-to-r from-chronos-primary-600 to-chronos-accent-600 text-white hover:from-chronos-primary-500 hover:to-chronos-accent-500',
+              : status === 'failed'
+                ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20'
+                : status === 'loading'
+                  ? 'cursor-wait bg-chronos-primary-500/20 text-chronos-primary-300'
+                  : 'bg-gradient-to-r from-chronos-primary-600 to-chronos-accent-600 text-white hover:from-chronos-primary-500 hover:to-chronos-accent-500',
           )}
         >
-          {status === 'verified' ? 'Proof Verified' : status === 'loading' ? 'Verifying...' : 'Verify Proof'}
+          {status === 'verified'
+            ? 'Proof Verified'
+            : status === 'failed'
+              ? 'Verification Failed — Retry'
+              : status === 'loading'
+                ? 'Verifying...'
+                : 'Verify Proof'}
         </button>
 
         {/* Public Signals */}

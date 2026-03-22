@@ -6,6 +6,9 @@ import AnalysisPage from '@/pages/AnalysisPage';
 import ClocksPage from '@/pages/ClocksPage';
 import ProofsPage from '@/pages/ProofsPage';
 import KnowledgePage from '@/pages/KnowledgePage';
+import TrajectoryPage from '@/pages/TrajectoryPage';
+import InterventionsPage from '@/pages/InterventionsPage';
+import SettingsPage from '@/pages/SettingsPage';
 
 export default function App() {
   return (
@@ -21,6 +24,9 @@ export default function App() {
             <Route path="/clocks" element={<ClocksPage />} />
             <Route path="/proofs" element={<ProofsPage />} />
             <Route path="/knowledge" element={<KnowledgePage />} />
+            <Route path="/trajectory" element={<TrajectoryPage />} />
+            <Route path="/interventions" element={<InterventionsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </main>
       </div>
