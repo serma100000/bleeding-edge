@@ -28,6 +28,22 @@ async function startServer() {
   const { pipeline, registry, knowledgeGraph, temporalTracker, proofVerifier, ruvector } =
     await ChronosFactory.createAsync();
 
+  // Auto-seed from bundled sample data if store is empty
+  if (ruvector.methylationStore.count === 0) {
+    const seedPath = path.resolve(__dirname, '../data/seed-samples.json');
+    if (existsSync(seedPath)) {
+      try {
+        const seedData = JSON.parse(readFileSync(seedPath, 'utf-8')) as Array<{
+          id: string; vector: number[]; metadata: Record<string, unknown>;
+        }>;
+        await ruvector.methylationStore.ingest(seedData);
+        console.log(`Auto-seeded ${seedData.length} samples from seed-samples.json`);
+      } catch (err) {
+        console.warn('Failed to auto-seed:', err);
+      }
+    }
+  }
+
   const parser = new MethylationParser();
 
   const app = express();
