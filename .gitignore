@@ -7,6 +7,10 @@ dist/
 # RuVector intelligence data
 .ruvector/
 .claude/statusline.sh
+.claude/memory.db
+
+# Swarm runtime data
+.swarm/
 
 # Large data files (downloaded at runtime via npm run ingest)
 data/*.gz
